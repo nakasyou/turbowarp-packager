@@ -40,6 +40,7 @@
   }
   defaultOptions.app.packageName = Packager.getDefaultPackageNameFromFileName(projectData.title);
   defaultOptions.app.windowTitle = Packager.getWindowTitleFromFileName(projectData.title);
+  defaultOptions.extensions = projectData.project.analysis.extensions.map(url => ({url}));
   const options = writablePersistentStore(`PackagerOptions.${projectData.uniqueId}`, defaultOptions);
 
   const hasMagicComment = (magic) => projectData.project.analysis.stageComments.find(
@@ -87,6 +88,17 @@
     'electron-linux64'
   ].includes($options.target);
 
+  const advancedOptionsInitiallyOpen = (
+    $options.compiler.enabled !== defaultOptions.compiler.enabled ||
+    $options.compiler.warpTimer !== defaultOptions.compiler.warpTimer ||
+    $options.extensions.length !== 0 ||
+    $options.bakeExtensions !== defaultOptions.bakeExtensions ||
+    $options.custom.css !== '' ||
+    $options.custom.js !== '' ||
+    $options.projectId !== defaultOptions.projectId ||
+    $options.packagedRuntime !== defaultOptions.packagedRuntime
+  );
+
   const automaticallyCenterCursor = () => {
     const icon = $customCursorIcon;
     const url = URL.createObjectURL(icon)
@@ -120,6 +132,10 @@
 
     task.setProgressText($_('progress.loadingScripts'));
 
+    packager.addEventListener('fetch-extensions', ({detail}) => {
+      task.setProgressText($_('progress.downloadingExtensions'));
+      task.setProgress(detail.progress);
+    });
     packager.addEventListener('large-asset-fetch', ({detail}) => {
       let thing;
       if (detail.asset.startsWith('nwjs-')) {
@@ -584,7 +600,7 @@
         <input type="checkbox" bind:checked={$options.chunks.pointerlock}>
         {$_('options.pointerlock')}
       </label>
-      <a href="https://experiments.turbowarp.org/pointerlock/" target="_blank" rel="noopener">
+      <a href="https://experiments.turbowarp.org/pointerlock/" target="_blank" rel="noopener noreferrer">
         {$_('options.pointerlockHelp')}
       </a>
     </div>
@@ -594,7 +610,7 @@
         <input type="checkbox" bind:checked={$options.chunks.gamepad}>
         {$_('options.gamepad')}
       </label>
-      <a href="https://turbowarp.org/addons#gamepad" target="_blank" rel="noopener">
+      <a href="https://turbowarp.org/addons#gamepad" target="_blank" rel="noopener noreferrer">
         {$_('options.gamepadHelp')}
       </a>
     </div>
@@ -693,7 +709,7 @@
 >
   <div>
     <h2>{$_('options.advancedOptions')}</h2>
-    <details>
+    <details open={advancedOptionsInitiallyOpen}>
       <summary>{$_('options.advancedSummary')}</summary>
 
       <div class="option">
@@ -718,6 +734,12 @@
         <!-- TODO: use the user-facing documentation when that becomes available -->
         <LearnMore slug="development/custom-extensions" />
         <CustomExtensions bind:extensions={$options.extensions} />
+        <p class="warning">{$_('options.customExtensionsSecurity')}</p>
+      </label>
+
+      <label class="option">
+        <input type="checkbox" bind:checked={$options.bakeExtensions}>
+        {$_('options.bakeExtensions')}
       </label>
 
       <label class="option">
@@ -737,8 +759,7 @@
 
       <label class="option">
         <input type="checkbox" bind:checked={$options.packagedRuntime} />
-        <!-- This option is temporary, so don't translate. -->
-        Use "packaged runtime" mode (experimental)
+        {$_('options.packagedRuntime')}
       </label>
     </details>
   </div>
@@ -930,14 +951,15 @@
           {:else if $options.target.includes('webview-mac')}
             <div>
               <h2>WKWebView</h2>
-              <p>WKWebView is the preferred way to package for macOS. It will be hundreds of MB smaller than the other macOS environments and typically run the fastest.</p>
-              <p>The app will run natively on both Intel and Apple silicon Macs running macOS 10.12 or later.</p>
+              <p>WKWebView is the preferred way to package for macOS. It will be hundreds of MB smaller than the other macOS-specific environments and typically run the fastest.</p>
+              <p>The app will run natively on both Intel and Apple silicon Macs running macOS 10.13 or later.</p>
               <p>Note that:</p>
               <ul>
-                <li>Video sensing and loudness blocks will not work</li>
-                <li>Extremely large projects might cause crashes</li>
+                <li>Video sensing and loudness blocks will only work in macOS 12 or later.</li>
+                <li>Pointer lock will not work.</li>
+                <li>Extremely large projects might not work properly.</li>
               </ul>
-              <p>Use "Electron macOS Application" or "Plain HTML" if you encounter these issues.</p>
+              <p>Use the "Electron macOS Application" (inside Other environments) or "Plain HTML" environments instead if you encounter these issues.</p>
             </div>
           {/if}
         {/if}
